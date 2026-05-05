@@ -1,6 +1,7 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Sidebar } from "@/components/shell/sidebar";
+import { Notifications } from "@/components/shell/notifications";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             Home Care CRM
           </Link>
           <div className="ml-auto flex items-center gap-3">
+            <Notifications />
             <OrganizationSwitcher
               afterCreateOrganizationUrl="/onboarding"
               afterSelectOrganizationUrl="/app"
