@@ -1,18 +1,49 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+"use client";
 
-export default function OnboardingStubPage() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-6 p-8 text-center">
-      <h1 className="text-3xl font-semibold tracking-tight">Welcome.</h1>
-      <p className="text-sm text-muted-foreground">
-        We&apos;ll walk you through agency onboarding next: states &amp; programs,
-        provider IDs, billing contacts, and BAA acknowledgment. The full wizard
-        lands in Prompt 6.
-      </p>
-      <Button asChild>
-        <Link href="/app">Continue to dashboard</Link>
-      </Button>
-    </main>
-  );
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
+import { useUser, useOrganization } from "@clerk/nextjs";
+import { api } from "@convex/_generated/api";
+import { OnboardingWizard } from "@/components/onboarding/wizard";
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const { user } = useUser();
+  const { organization } = useOrganization();
+  const current = useQuery(api.agencies.current);
+  const bootstrap = useMutation(api.agencies.bootstrap);
+  const [bootstrapped, setBootstrapped] = useState(false);
+
+  useEffect(() => {
+    if (!user || !organization || bootstrapped) return;
+    void bootstrap({
+      primaryEmail: user.primaryEmailAddress?.emailAddress ?? "",
+      agencyName: organization.name,
+    }).then(() => setBootstrapped(true));
+  }, [user, organization, bootstrap, bootstrapped]);
+
+  useEffect(() => {
+    if (current?.agency?.onboardingComplete) {
+      router.replace("/app");
+    }
+  }, [current, router]);
+
+  if (!user || !organization) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-8 text-sm text-muted-foreground">
+        Preparing your onboarding…
+      </main>
+    );
+  }
+
+  if (current === undefined) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-8 text-sm text-muted-foreground">
+        Loading…
+      </main>
+    );
+  }
+
+  return <OnboardingWizard agencyName={organization.name} />;
 }
