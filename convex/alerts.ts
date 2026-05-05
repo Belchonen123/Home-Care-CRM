@@ -146,3 +146,74 @@ function labelForKind(kind: string): string {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/**
+ * Daily cron entry: raises authorization-expiring alerts at the 30/14/7-day
+ * windows and authorization-exhausted alerts at ≥90% utilization.
+ */
+export const scanAuthorizationAlerts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const today = isoDate(Date.now());
+    const auths = await ctx.db
+      .query("authorizations")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+    let raised = 0;
+
+    for (const a of auths) {
+      if (a.deletedAt) continue;
+
+      const days = daysBetween(today, a.endDate);
+      if (days <= 30 && days >= 0) {
+        const exists = await ctx.db
+          .query("alerts")
+          .withIndex("by_agency_kind", (q) =>
+            q.eq("agencyId", a.agencyId).eq("kind", "authorization_expiring"),
+          )
+          .filter((q) => q.eq(q.field("targetAuthorizationId"), a._id))
+          .first();
+        if (!exists) {
+          await ctx.db.insert("alerts", {
+            agencyId: a.agencyId,
+            kind: "authorization_expiring",
+            severity: days <= 7 ? "critical" : days <= 14 ? "warning" : "info",
+            title: `Authorization expires in ${days} day${days === 1 ? "" : "s"}`,
+            body: `Auth ${a.externalAuthNumber} (${a.serviceCode}) expires on ${a.endDate}.`,
+            targetClientId: a.clientId,
+            targetAuthorizationId: a._id,
+            createdAt: Date.now(),
+          });
+          raised++;
+        }
+      }
+
+      if (
+        a.authorizedUnits > 0 &&
+        a.consumedUnits / a.authorizedUnits >= 0.9
+      ) {
+        const exists = await ctx.db
+          .query("alerts")
+          .withIndex("by_agency_kind", (q) =>
+            q.eq("agencyId", a.agencyId).eq("kind", "authorization_exhausted"),
+          )
+          .filter((q) => q.eq(q.field("targetAuthorizationId"), a._id))
+          .first();
+        if (!exists) {
+          await ctx.db.insert("alerts", {
+            agencyId: a.agencyId,
+            kind: "authorization_exhausted",
+            severity: "warning",
+            title: "Authorization 90% utilized",
+            body: `Auth ${a.externalAuthNumber} has used ${a.consumedUnits}/${a.authorizedUnits} units.`,
+            targetClientId: a.clientId,
+            targetAuthorizationId: a._id,
+            createdAt: Date.now(),
+          });
+          raised++;
+        }
+      }
+    }
+    return { raised };
+  },
+});

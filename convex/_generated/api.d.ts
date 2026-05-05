@@ -12,17 +12,21 @@ import type { ApiFromModules } from "convex/server";
 import type * as agencies from "../agencies.js";
 import type * as alerts from "../alerts.js";
 import type * as auditLog from "../auditLog.js";
+import type * as authorizations from "../authorizations.js";
 import type * as caregivers from "../caregivers.js";
 import type * as clients from "../clients.js";
 import type * as credentials from "../credentials.js";
+import type * as payers from "../payers.js";
 
 declare const fullApi: ApiFromModules<{
   agencies: typeof agencies;
   alerts: typeof alerts;
   auditLog: typeof auditLog;
+  authorizations: typeof authorizations;
   caregivers: typeof caregivers;
   clients: typeof clients;
   credentials: typeof credentials;
+  payers: typeof payers;
 }>;
 
 export declare const api: typeof fullApi;

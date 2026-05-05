@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/clients/tabs";
 import { ClientTimeline } from "@/components/clients/timeline";
 import { OverviewTab } from "@/components/clients/overview-tab";
+import { AuthorizationsTab } from "@/components/clients/authorizations-tab";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -80,9 +81,7 @@ export default function ClientDetailPage(props: { params: Promise<{ id: string }
 
       {tab === "overview" && <OverviewTab client={client} />}
       {tab === "authorizations" && (
-        <Card className="p-8 text-center text-sm text-muted-foreground">
-          Authorizations land in Prompt 9.
-        </Card>
+        <AuthorizationsTab clientId={clientId} clientProgram={client.program} />
       )}
       {tab === "plan-of-care" && (
         <Card className="p-8 text-center text-sm text-muted-foreground">
