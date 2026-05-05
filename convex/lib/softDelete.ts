@@ -1,6 +1,8 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Id, TableNames } from "../_generated/dataModel";
+import { logAudit } from "./audit";
+import { requireMembership } from "./access";
 
 /**
  * Tables that participate in soft-delete. Must match the schema's set of tables
@@ -26,25 +28,30 @@ interface SoftDeletePatch {
 
 /**
  * Marks a row as deleted (sets `deletedAt`, `deletedBy`, `deletedReason`). Hard
- * delete is reserved for owner-with-reason flows in a separate helper.
- *
- * TODO(prompt-4): also call `logAudit(ctx, { action: `${table}.soft_delete`, ... })`
- *   once the audit-log helper lands. The line below this comment is the exact
- *   hook point — add the call there and wire the actor identity from `ctx.auth`.
+ * delete is reserved for owner-with-reason flows in a separate helper. Always
+ * writes a `<table>.soft_delete` audit entry.
  */
 export async function softDelete<T extends SoftDeletableTable>(
   ctx: MutationCtx,
   table: T,
   id: Id<T>,
-  args: { byUserId: Id<"users">; reason?: string },
+  args: { reason?: string },
 ): Promise<void> {
+  const membership = await requireMembership(ctx);
   const row = await ctx.db.get(id);
   if (!row) {
     throw new ConvexError({ code: "NOT_FOUND", message: `${table} not found.` });
   }
+  // Cross-tenant guard: refuse to soft-delete a row from another agency, even
+  // if the caller produced a valid Id. Some soft-deletable tables don't carry
+  // `agencyId` (none today), so we narrow with `in`.
+  if ("agencyId" in row && row.agencyId !== membership.agencyId) {
+    throw new ConvexError({ code: "FORBIDDEN", message: "Cross-agency access denied." });
+  }
+
   const patch: SoftDeletePatch = {
     deletedAt: Date.now(),
-    deletedBy: args.byUserId,
+    deletedBy: membership.userId,
     ...(args.reason ? { deletedReason: args.reason } : {}),
   };
   // Each soft-deletable table has its own document type, but all share the
@@ -55,11 +62,10 @@ export async function softDelete<T extends SoftDeletableTable>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (ctx.db.patch as any)(id, patch);
 
-  // TODO(prompt-4): audit hook lands here.
-  // await logAudit(ctx, {
-  //   action: `${table}.soft_delete`,
-  //   entityType: table,
-  //   entityId: id,
-  //   summary: args.reason,
-  // });
+  await logAudit(ctx, membership, {
+    action: `${table}.soft_delete`,
+    entityType: table,
+    entityId: id,
+    summary: args.reason,
+  });
 }
