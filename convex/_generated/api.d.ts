@@ -11,10 +11,12 @@ import type { ApiFromModules } from "convex/server";
 
 import type * as agencies from "../agencies.js";
 import type * as auditLog from "../auditLog.js";
+import type * as clients from "../clients.js";
 
 declare const fullApi: ApiFromModules<{
   agencies: typeof agencies;
   auditLog: typeof auditLog;
+  clients: typeof clients;
 }>;
 
 export declare const api: typeof fullApi;
