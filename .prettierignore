@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+build
+coverage
+convex/_generated
+pnpm-lock.yaml
+playwright-report
+test-results
