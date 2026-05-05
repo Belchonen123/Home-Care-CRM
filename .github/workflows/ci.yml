@@ -12,8 +12,14 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
 
       - name: Read .nvmrc
         id: nvm
@@ -22,12 +28,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ steps.nvm.outputs.version }}
-
-      - name: Enable corepack
-        run: corepack enable
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
 
       - name: Lint
         run: pnpm lint
@@ -37,3 +43,5 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+        env:
+          PHI_ENCRYPTION_KEY: ${{ secrets.PHI_ENCRYPTION_KEY || 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }}
